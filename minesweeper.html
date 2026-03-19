@@ -7,6 +7,91 @@
     /* ── Win98 全局 ── */
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
 
+    /* ── 密码锁屏遮罩 ── */
+    #lock-screen {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+    }
+    #lock-window {
+      background: #c0c0c0;
+      border-top:    2px solid #fff;
+      border-left:   2px solid #fff;
+      border-right:  2px solid #808080;
+      border-bottom: 2px solid #808080;
+      box-shadow: 3px 3px 0 #000;
+      width: 280px;
+    }
+    #lock-titlebar {
+      background: linear-gradient(90deg, #000080, #1084d0);
+      color: #fff;
+      padding: 3px 6px;
+      font-weight: bold;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    #lock-body {
+      padding: 16px;
+    }
+    #lock-body .lock-icon {
+      font-size: 36px;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    #lock-body label {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    #lock-input {
+      width: 100%;
+      font-family: "MS Sans Serif", Arial, sans-serif;
+      font-size: 13px;
+      padding: 3px 4px;
+      border-top:    2px solid #808080;
+      border-left:   2px solid #808080;
+      border-right:  2px solid #fff;
+      border-bottom: 2px solid #fff;
+      background: #fff;
+      margin-bottom: 10px;
+      outline: none;
+    }
+    #lock-error {
+      color: #cc0000;
+      font-size: 11px;
+      min-height: 16px;
+      margin-bottom: 8px;
+    }
+    #lock-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+    .win98-btn {
+      min-width: 70px;
+      padding: 3px 10px;
+      font-family: "MS Sans Serif", Arial, sans-serif;
+      font-size: 12px;
+      background: #c0c0c0;
+      border-top:    2px solid #fff;
+      border-left:   2px solid #fff;
+      border-right:  2px solid #808080;
+      border-bottom: 2px solid #808080;
+      cursor: pointer;
+    }
+    .win98-btn:active {
+      border-top:    2px solid #808080;
+      border-left:   2px solid #808080;
+      border-right:  2px solid #fff;
+      border-bottom: 2px solid #fff;
+    }
+
     /* ── 跑马灯 ── */
     .marquee-bar {
       position: fixed;
@@ -220,6 +305,23 @@
 </head>
 <body>
 
+<!-- 密码锁屏 -->
+<div id="lock-screen">
+  <div id="lock-window">
+    <div id="lock-titlebar">🔒 需要密码</div>
+    <div id="lock-body">
+      <div class="lock-icon">🔐</div>
+      <label for="lock-input">请输入密码以继续：</label>
+      <input id="lock-input" type="password" maxlength="32" autocomplete="off" placeholder="Password" />
+      <div id="lock-error"></div>
+      <div id="lock-buttons">
+        <button class="win98-btn" onclick="checkPassword()">确定</button>
+        <button class="win98-btn" onclick="document.getElementById('lock-input').value=''">清除</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- 跑马灯 -->
 <div class="marquee-bar">
   <span class="marquee-inner">⭐ hellow world ⭐ hellow world ⭐ hellow world ⭐ hellow world ⭐ hellow world ⭐ hellow world ⭐ hellow world ⭐ hellow world ⭐</span>
@@ -275,6 +377,38 @@
 </div>
 
 <script>
+// ─── 密码保护 ────────────────────────────────────────────
+// SHA-256 hash of "1993129"
+const PASSWORD_HASH = '59e7cb8a2fa3def1b024303f31ce5dcd033fd4af65edd0bee57ce8a9d04bece4';
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function checkPassword() {
+  const input = document.getElementById('lock-input').value;
+  const hash  = await sha256(input);
+  if (hash === PASSWORD_HASH) {
+    document.getElementById('lock-screen').style.display = 'none';
+    document.getElementById('lock-input').value = '';
+  } else {
+    const err = document.getElementById('lock-error');
+    err.textContent = '❌ 密码错误，请重试。';
+    document.getElementById('lock-input').value = '';
+    document.getElementById('lock-input').focus();
+    setTimeout(() => err.textContent = '', 2500);
+  }
+}
+
+// Enter 键提交
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('lock-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') checkPassword();
+  });
+  document.getElementById('lock-input').focus();
+});
+
 // ─── 配置 ────────────────────────────────────────────────
 const PRESETS = {
   beginner:     { rows: 9,  cols: 9,  mines: 10 },
