@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>扫雷</title>
+  <style>
+    /* ── Win98 全局 ── */
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+
+    body {
+      background: #008080;          /* 经典青绿桌面 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: "MS Sans Serif", "Microsoft Sans Serif", Arial, sans-serif;
+      font-size: 12px;
+    }
+
+    /* ── 窗口外框 ── */
+    .window {
+      background: #c0c0c0;
+      border-top:    2px solid #ffffff;
+      border-left:   2px solid #ffffff;
+      border-right:  2px solid #808080;
+      border-bottom: 2px solid #808080;
+      box-shadow: 2px 2px 0 #000;
+      min-width: 200px;
+    }
+
+    /* ── 标题栏 ── */
+    .titlebar {
+      background: linear-gradient(90deg, #000080, #1084d0);
+      color: #fff;
+      padding: 3px 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: bold;
+      font-size: 12px;
+    }
+    .titlebar-left { display: flex; align-items: center; gap: 4px; }
+    .titlebar-icon { width: 16px; height: 16px; image-rendering: pixelated; }
+
+    /* 标题栏按钮 */
+    .tb-btn {
+      width: 16px; height: 14px;
+      background: #c0c0c0;
+      border-top:   1px solid #fff;
+      border-left:  1px solid #fff;
+      border-right: 1px solid #808080;
+      border-bottom:1px solid #808080;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; color: #000; cursor: pointer; font-weight: bold;
+    }
+    .tb-btn:active {
+      border-top:   1px solid #808080;
+      border-left:  1px solid #808080;
+      border-right: 1px solid #fff;
+      border-bottom:1px solid #fff;
+    }
+
+    /* ── 菜单栏 ── */
+    .menubar {
+      display: flex;
+      padding: 2px 2px 0;
+      border-bottom: 1px solid #808080;
+    }
+    .menu-item {
+      padding: 2px 6px;
+      cursor: pointer;
+    }
+    .menu-item:hover { background: #000080; color: #fff; }
+
+    /* ── 主内容区 ── */
+    .content { padding: 6px; }
+
+    /* ── 信息面板 (凹入边框) ── */
+    .info-panel {
+      background: #c0c0c0;
+      border-top:    2px solid #808080;
+      border-left:   2px solid #808080;
+      border-right:  2px solid #ffffff;
+      border-bottom: 2px solid #ffffff;
+      padding: 4px 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    /* 七段数码管显示 */
+    .led-display {
+      background: #000;
+      color: #ff0000;
+      font-family: "Courier New", monospace;
+      font-size: 22px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      padding: 2px 4px;
+      min-width: 52px;
+      text-align: right;
+      border-top:   2px solid #808080;
+      border-left:  2px solid #808080;
+      border-right: 2px solid #fff;
+      border-bottom:2px solid #fff;
+    }
+
+    /* 笑脸按钮 */
+    #smiley {
+      width: 26px; height: 26px;
+      background: #c0c0c0;
+      border-top:    2px solid #fff;
+      border-left:   2px solid #fff;
+      border-right:  2px solid #808080;
+      border-bottom: 2px solid #808080;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; cursor: pointer; line-height: 1;
+    }
+    #smiley:active {
+      border-top:    2px solid #808080;
+      border-left:   2px solid #808080;
+      border-right:  2px solid #fff;
+      border-bottom: 2px solid #fff;
+    }
+
+    /* ── 游戏网格区域 (凹入) ── */
+    .grid-wrapper {
+      border-top:    3px solid #808080;
+      border-left:   3px solid #808080;
+      border-right:  3px solid #fff;
+      border-bottom: 3px solid #fff;
+      display: inline-block;
+    }
+
+    /* ── 格子 ── */
+    .grid { display: grid; }
+
+    .cell {
+      width: 22px; height: 22px;
+      background: #c0c0c0;
+      border-top:   2px solid #fff;
+      border-left:  2px solid #fff;
+      border-right: 2px solid #808080;
+      border-bottom:2px solid #808080;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: bold;
+      cursor: pointer;
+      overflow: hidden;
+    }
+
+    .cell.revealed {
+      border: 1px solid #808080;
+      background: #c0c0c0;
+      cursor: default;
+    }
+    .cell.flagged   { }
+    .cell.exploded  { background: #ff0000; }
+    .cell.wrong-flag { background: #ff0000; }
+
+    /* 数字颜色（经典配色） */
+    .n1 { color: #0000ff; }
+    .n2 { color: #008000; }
+    .n3 { color: #ff0000; }
+    .n4 { color: #000080; }
+    .n5 { color: #800000; }
+    .n6 { color: #008080; }
+    .n7 { color: #000000; }
+    .n8 { color: #808080; }
+
+    /* ── 难度选择下拉 ── */
+    .difficulty-select {
+      appearance: none;
+      -webkit-appearance: none;
+      background: #c0c0c0;
+      border-top:    2px solid #808080;
+      border-left:   2px solid #808080;
+      border-right:  2px solid #fff;
+      border-bottom: 2px solid #fff;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 1px 4px;
+      cursor: pointer;
+    }
+
+    /* ── 状态栏 ── */
+    .statusbar {
+      margin-top: 6px;
+      border-top: 2px solid #808080;
+      padding: 2px 4px;
+      color: #444;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="window" id="window">
+  <!-- 标题栏 -->
+  <div class="titlebar">
+    <div class="titlebar-left">
+      <span>💣</span>
+      <span>扫雷</span>
+    </div>
+    <div style="display:flex;gap:2px;">
+      <div class="tb-btn" title="最小化">_</div>
+      <div class="tb-btn" title="最大化">□</div>
+      <div class="tb-btn" style="font-size:11px;" title="关闭">✕</div>
+    </div>
+  </div>
+
+  <!-- 菜单栏 -->
+  <div class="menubar">
+    <div class="menu-item" id="menu-game" onclick="toggleGameMenu()">游戏(G)</div>
+    <div class="menu-item">帮助(H)</div>
+  </div>
+
+  <!-- 游戏内容 -->
+  <div class="content">
+    <!-- 难度选择（仿菜单下拉） -->
+    <div style="margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+      <span>难度：</span>
+      <select class="difficulty-select" id="difficulty" onchange="changeDifficulty()">
+        <option value="beginner">初级 (9×9, 10雷)</option>
+        <option value="intermediate" selected>中级 (16×16, 40雷)</option>
+        <option value="expert">高级 (30×16, 99雷)</option>
+      </select>
+    </div>
+
+    <!-- 信息面板 -->
+    <div class="info-panel">
+      <div class="led-display" id="mine-counter">010</div>
+      <div id="smiley" onclick="resetGame()" title="新游戏">🙂</div>
+      <div class="led-display" id="timer">000</div>
+    </div>
+
+    <!-- 网格 -->
+    <div class="grid-wrapper">
+      <div class="grid" id="grid"></div>
+    </div>
+
+    <!-- 状态栏 -->
+    <div class="statusbar" id="statusbar">右键放旗，左键揭开格子</div>
+  </div>
+</div>
+
+<script>
+// ─── 配置 ────────────────────────────────────────────────
+const PRESETS = {
+  beginner:     { rows: 9,  cols: 9,  mines: 10 },
+  intermediate: { rows: 16, cols: 16, mines: 40 },
+  expert:       { rows: 16, cols: 30, mines: 99 },
+};
+
+let cfg = { ...PRESETS.intermediate };
+let board = [];          // { mine, revealed, flagged, count }[][]
+let gameState = 'idle';  // idle | playing | won | lost
+let flagsLeft = 0;
+let timerVal  = 0;
+let timerID   = null;
+let firstClick = true;
+
+// ─── 初始化 ──────────────────────────────────────────────
+function initBoard() {
+  board = [];
+  for (let r = 0; r < cfg.rows; r++) {
+    board[r] = [];
+    for (let c = 0; c < cfg.cols; c++) {
+      board[r][c] = { mine: false, revealed: false, flagged: false, count: 0 };
+    }
+  }
+}
+
+function placeMines(safeR, safeC) {
+  let placed = 0;
+  while (placed < cfg.mines) {
+    const r = Math.floor(Math.random() * cfg.rows);
+    const c = Math.floor(Math.random() * cfg.cols);
+    if (board[r][c].mine) continue;
+    if (Math.abs(r - safeR) <= 1 && Math.abs(c - safeC) <= 1) continue;
+    board[r][c].mine = true;
+    placed++;
+  }
+  // 计算数字
+  for (let r = 0; r < cfg.rows; r++) {
+    for (let c = 0; c < cfg.cols; c++) {
+      if (board[r][c].mine) continue;
+      board[r][c].count = neighbors(r, c).filter(([nr, nc]) => board[nr][nc].mine).length;
+    }
+  }
+}
+
+function neighbors(r, c) {
+  const res = [];
+  for (let dr = -1; dr <= 1; dr++)
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const nr = r + dr, nc = c + dc;
+      if (nr >= 0 && nr < cfg.rows && nc >= 0 && nc < cfg.cols) res.push([nr, nc]);
+    }
+  return res;
+}
+
+// ─── 渲染 ────────────────────────────────────────────────
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  grid.style.gridTemplateColumns = `repeat(${cfg.cols}, 22px)`;
+  grid.innerHTML = '';
+  for (let r = 0; r < cfg.rows; r++) {
+    for (let c = 0; c < cfg.cols; c++) {
+      const el = document.createElement('div');
+      el.className = 'cell';
+      el.dataset.r = r;
+      el.dataset.c = c;
+      el.addEventListener('click', onLeftClick);
+      el.addEventListener('contextmenu', onRightClick);
+      grid.appendChild(el);
+    }
+  }
+  updateAllCells();
+}
+
+function cellEl(r, c) {
+  return document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+}
+
+function updateCell(r, c) {
+  const el = cellEl(r, c);
+  if (!el) return;
+  const cell = board[r][c];
+  el.className = 'cell';
+  el.textContent = '';
+
+  if (cell.revealed) {
+    el.classList.add('revealed');
+    if (cell.mine) {
+      el.textContent = '💣';
+    } else if (cell.count > 0) {
+      el.textContent = cell.count;
+      el.classList.add('n' + cell.count);
+    }
+  } else if (cell.flagged) {
+    el.textContent = '🚩';
+  }
+}
+
+function updateAllCells() {
+  for (let r = 0; r < cfg.rows; r++)
+    for (let c = 0; c < cfg.cols; c++)
+      updateCell(r, c);
+}
+
+// ─── 点击处理 ────────────────────────────────────────────
+function onLeftClick(e) {
+  const r = +e.currentTarget.dataset.r;
+  const c = +e.currentTarget.dataset.c;
+  if (gameState === 'won' || gameState === 'lost') return;
+  const cell = board[r][c];
+  if (cell.revealed || cell.flagged) return;
+  playJumpNote();
+
+  if (firstClick) {
+    firstClick = false;
+    placeMines(r, c);
+    startTimer();
+    gameState = 'playing';
+  }
+
+  reveal(r, c);
+  checkWin();
+}
+
+function onRightClick(e) {
+  e.preventDefault();
+  const r = +e.currentTarget.dataset.r;
+  const c = +e.currentTarget.dataset.c;
+  if (gameState === 'won' || gameState === 'lost') return;
+  const cell = board[r][c];
+  if (cell.revealed) return;
+  playJumpNote();
+
+  cell.flagged = !cell.flagged;
+  flagsLeft += cell.flagged ? -1 : 1;
+  updateMineCounter();
+  updateCell(r, c);
+}
+
+// ─── 揭开逻辑（BFS） ────────────────────────────────────
+function reveal(r, c) {
+  const queue = [[r, c]];
+  while (queue.length) {
+    const [cr, cc] = queue.shift();
+    const cell = board[cr][cc];
+    if (cell.revealed || cell.flagged) continue;
+    cell.revealed = true;
+    updateCell(cr, cc);
+
+    if (cell.mine) {
+      gameOver(cr, cc);
+      return;
+    }
+    if (cell.count === 0) {
+      neighbors(cr, cc).forEach(([nr, nc]) => {
+        if (!board[nr][nc].revealed && !board[nr][nc].flagged)
+          queue.push([nr, nc]);
+      });
+    }
+  }
+}
+
+// ─── 游戏结束 ────────────────────────────────────────────
+function playBoomSound() {
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    const now = ctx.currentTime;
+    // 爆炸噪声
+    const bufSize = ctx.sampleRate * 0.5;
+    const buffer = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const gain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = 300;
+    gain.gain.setValueAtTime(1.0, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+    src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+    src.start(now); src.stop(now + 0.5);
+  } catch(e) {}
+}
+
+function playWinSound() {
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    // 播放 Jump 旋律的高音欢呼段
+    const fanfare = ['C5','E5','G5','C5','E5','G5','A5','G5'];
+    fanfare.forEach((note, i) => {
+      const now = ctx.currentTime + i * 0.12;
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(NOTE_FREQ[note], now);
+      g.gain.setValueAtTime(0.2, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(now); osc.stop(now + 0.18);
+    });
+  } catch(e) {}
+}
+
+function gameOver(explodeR, explodeC) {
+  gameState = 'lost';
+  stopTimer();
+  playBoomSound();
+  document.getElementById('smiley').textContent = '😵';
+  document.getElementById('statusbar').textContent = '你踩到雷了！游戏结束。点笑脸重新开始。';
+
+  // 标出所有雷
+  for (let r = 0; r < cfg.rows; r++) {
+    for (let c = 0; c < cfg.cols; c++) {
+      const cell = board[r][c];
+      if (cell.mine && !cell.flagged) {
+        cell.revealed = true;
+        updateCell(r, c);
+      }
+      // 错误的旗子
+      if (!cell.mine && cell.flagged) {
+        const el = cellEl(r, c);
+        el.textContent = '❌';
+      }
+    }
+  }
+  // 爆炸格子高亮
+  const el = cellEl(explodeR, explodeC);
+  if (el) el.classList.add('exploded');
+}
+
+function checkWin() {
+  let unrevealedSafe = 0;
+  for (let r = 0; r < cfg.rows; r++)
+    for (let c = 0; c < cfg.cols; c++)
+      if (!board[r][c].mine && !board[r][c].revealed) unrevealedSafe++;
+
+  if (unrevealedSafe === 0) {
+    gameState = 'won';
+    stopTimer();
+    playWinSound();
+    document.getElementById('smiley').textContent = '😎';
+    document.getElementById('statusbar').textContent = `🎉 恭喜！用时 ${timerVal} 秒，你赢了！`;
+    // 自动插旗剩余雷
+    for (let r = 0; r < cfg.rows; r++)
+      for (let c = 0; c < cfg.cols; c++)
+        if (board[r][c].mine && !board[r][c].flagged) {
+          board[r][c].flagged = true;
+          updateCell(r, c);
+        }
+    flagsLeft = 0;
+    updateMineCounter();
+  }
+}
+
+// ─── 计时器 ──────────────────────────────────────────────
+function startTimer() {
+  timerVal = 0;
+  clearInterval(timerID);
+  timerID = setInterval(() => {
+    if (timerVal < 999) timerVal++;
+    document.getElementById('timer').textContent = String(timerVal).padStart(3, '0');
+  }, 1000);
+}
+
+function stopTimer() { clearInterval(timerID); }
+
+// ─── 雷数显示 ────────────────────────────────────────────
+function updateMineCounter() {
+  const v = Math.max(-99, Math.min(999, flagsLeft));
+  document.getElementById('mine-counter').textContent =
+    v < 0 ? '-' + String(Math.abs(v)).padStart(2, '0') : String(v).padStart(3, '0');
+}
+
+// ─── 重置 ────────────────────────────────────────────────
+function resetGame() {
+  stopTimer();
+  firstClick = true;
+  gameState  = 'idle';
+  timerVal   = 0;
+  flagsLeft  = cfg.mines;
+  document.getElementById('smiley').textContent  = '🙂';
+  document.getElementById('timer').textContent   = '000';
+  document.getElementById('statusbar').textContent = '右键放旗，左键揭开格子';
+  updateMineCounter();
+  initBoard();
+  renderGrid();
+}
+
+function changeDifficulty() {
+  const val = document.getElementById('difficulty').value;
+  cfg = { ...PRESETS[val] };
+  resetGame();
+}
+
+function toggleGameMenu() {
+  // 简单提示，仿菜单
+}
+
+// ─── BLACKPINK《Jump》音效合成器 ──────────────────────────
+// 《Jump》副歌主旋律音符序列（音名 → 频率 Hz）
+const NOTE_FREQ = {
+  'C4':261.63,'D4':293.66,'E4':329.63,'F4':349.23,
+  'G4':392.00,'A4':440.00,'B4':493.88,
+  'C5':523.25,'D5':587.33,'E5':659.25,'F5':698.46,
+  'G5':783.99,'A5':880.00,'B5':987.77,
+  'Bb4':466.16,'Eb4':311.13,'Ab4':415.30,
+};
+
+// Jump 副歌旋律片段（每次点击轮流播放其中一个音符）
+// 近似 "Jump, jump, jump to the rhythm jump..."
+const JUMP_MELODY = [
+  'G4','G4','A4','G4','E4','G4',
+  'A4','A4','B4','A4','G4','A4',
+  'G4','E4','D4','E4','G4','A4',
+  'G4','G4',
+];
+let melodyIdx = 0;
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playJumpNote() {
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+
+    const note = JUMP_MELODY[melodyIdx % JUMP_MELODY.length];
+    melodyIdx++;
+    const freq = NOTE_FREQ[note] || 440;
+    const now  = ctx.currentTime;
+
+    // 合成器：方波 + 三角波叠加，模拟 K-pop synth 音色
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+
+    osc1.type = 'square';
+    osc1.frequency.setValueAtTime(freq, now);
+
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(freq * 2, now);  // 高八度泛音
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(2000, now);
+
+    gainNode.gain.setValueAtTime(0.18, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+    osc1.connect(filter);
+    osc2.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 0.25);
+    osc2.stop(now + 0.25);
+
+    // 轻微打击节奏感（短噪声模拟鼓点）
+    if (melodyIdx % 4 === 0) playKick(ctx, now);
+  } catch (e) { /* 静默忽略音频错误 */ }
+}
+
+function playKick(ctx, now) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(150, now);
+  osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+  gain.gain.setValueAtTime(0.5, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.15);
+}
+
+// ─── 启动 ────────────────────────────────────────────────
+resetGame();
+</script>
+</body>
+</html>
